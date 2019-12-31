@@ -2,9 +2,9 @@ default: all
 
 all: build_ext
 
-build_ext: simplehttp/ext.cpython-38.so
+build_ext: ext.cpython-38.so
 
-simplehttp/ext.cpython-38.so: simplehttp/ext.pyx
+ext.cpython-38.so: simplehttp/ext.pyx setup.py
 	python setup.py build_ext --inplace
 
 clean:

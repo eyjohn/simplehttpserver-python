@@ -1,12 +1,19 @@
 from distutils.core import setup
 from Cython.Build import cythonize
 from distutils.extension import Extension
+import subprocess
 
-extensions = [Extension("simplehttp.ext", ['simplehttp/ext.pyx'], language='c++')]
+extensions = [
+    Extension('simplehttp.ext', 
+              ['simplehttp/ext.pyx'], 
+              language='c++',
+              extra_compile_args=subprocess.check_output(['pkg-config', '--cflags', 'simplehttp']).decode('ascii').strip().split(),
+              extra_link_args=subprocess.check_output(['pkg-config', '--libs', 'simplehttp']).decode('ascii').strip().split(),
+)]
 
 setup(
-    name="simplehttp",
-    packages=["simplehttp"],
+    name='simplehttp',
+    packages=['simplehttp'],
     version='1.0',
     description='A native C++ HTTP Client and Server with inter-platform OpenTracing support.',
     author='Evgeny Yakimov',
