@@ -1,43 +1,32 @@
-
 from libcpp.string cimport string
 from libcpp.optional cimport optional
+from simplehttp cimport Request as NativeRequest, \
+                        Response as NativeResponse, \
+                        SimpleHttpClient as NativeSimpleHttpClient, \
+                        SimpleHttpServer as NativeSimpleHttpServer
+from python_callable cimport PythonCallable
+from .types import Request, Response
 
-"""
-struct Request {
-  std::string path;
-  std::optional<std::string> data;
-};
+cdef class SimpleHttpClient:
+    cdef optional[NativeSimpleHttpClient] client
 
-struct Response {
-  unsigned int code;
-  std::optional<std::string> data;
-};
-"""
+    def __init__(self, host: str, port: int):
+        self.client = NativeSimpleHttpClient(host.encode('ascii'), port)
 
-cdef extern from "simplehttp/common.h" namespace "simplehttp":
-    cdef cppclass Request:
-        string path
-        optional[string] data
+    def make_request(self, request: Request) -> Response:
+        assert(self.client.has_value())
+        cdef NativeRequest nreq
+        cdef NativeResponse nresp
 
-    cdef cppclass Response:
-        unsigned int code
-        optional[string] data
+        nreq.path = request.path.encode('ascii')
+        if request.data is not None:
+            nreq.data = string(bytes(request.data))
 
-def foo():
-    cdef Request r;
-    r.path = b'abc'
-    r.data = string(b'bar')
-    return (r.path, r.data.value())
+        nresp = self.client.value().make_request(nreq)
+        return Response(nresp.code, nresp.data.value() if nresp.data.has_value() else None)
 
+    def __del__(self):
+        self.client.reset()
 
-# cdef class SomeClassWrapper:
-#     cdef SomeClass sc
-
-#     def __init__(self):
-#         self.sc = SomeClass()
-
-#     def say_hello(self, name:str):
-#         self.sc.sayHello(name.encode("ascii"))
-
-#     def multiply(self, a:int, b:int):
-#         return self.sc.multiply(a, b) 
+cdef class SimpleHttpServer:
+    pass
