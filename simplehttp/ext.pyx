@@ -6,7 +6,6 @@ from simplehttp cimport Request as NativeRequest, \
                         SimpleHttpClient as NativeSimpleHttpClient, \
                         SimpleHttpServer as NativeSimpleHttpServer
 from request_handler cimport RequestHandler
-from simplehttpserver_helper cimport instantiate
 
 from typing import Callable
 from .types import Request, Response
@@ -26,7 +25,7 @@ cdef class SimpleHttpClient:
     cdef optional[NativeSimpleHttpClient] client
 
     def __init__(self, host: str, port: int):
-        self.client = NativeSimpleHttpClient(host.encode('ascii'), port)
+        self.client.emplace(<string>host.encode('ascii'), <unsigned short>port)
 
     def make_request(self, request: Request) -> Response:
         assert(self.client.has_value())
@@ -47,7 +46,7 @@ cdef class SimpleHttpServer:
     cdef optional[NativeSimpleHttpServer] server
 
     def __init__(self, address: str, port: int):
-        instantiate(self.server, address.encode('ascii'), port)
+        self.server.emplace(<string>address.encode('ascii'), <unsigned short>port)
 
     def run(self, callback: Callable[[Request], Response]):
         assert(self.server.has_value())
