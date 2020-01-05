@@ -5,7 +5,7 @@ import subprocess
 
 extensions = [
     Extension('simplehttp.ext', 
-              ['simplehttp/ext.pyx'], 
+              ['simplehttp/ext.pyx', 'src/otinterop_tracer.cpp'], 
               language='c++',
               include_dirs=['src'],
               extra_compile_args=subprocess.check_output(['pkg-config', '--cflags', 'simplehttp']).decode('ascii').strip().split(),
