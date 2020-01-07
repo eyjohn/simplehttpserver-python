@@ -62,55 +62,14 @@ class Span : public opentracing::Span {
 
   const opentracing::Tracer& tracer() const noexcept override;
 
-  struct LogData {
-    opentracing::SystemTime time;
-    std::string key;
-    opentracing::Value value;
-  };
 
   struct SpanData {
-    std::optional<SystemTime> start_time;
-    std::optional<SystemTime> finish_time;
+    std::optional<opentracing::SystemTime> start_time;
+    std::optional<opentracing::SystemTime> finish_time;
     std::map<std::string, opentracing::Value> tags;
     std::map<std::string, std::string> baggage;
-    std::vector<LogData> logs;
+    std::vector<opentracing::LogRecord> logs;
   };
-
-private:
-
-};
-
-class Tracer: public opentracing::Tracer {
- public:
-
-  Tracer();
-
-  std::unique_ptr<opentracing::Span> StartSpanWithOptions(
-      opentracing::string_view operation_name, const opentracing::StartSpanOptions& options) const
-      noexcept override;
-
-  using opentracing::Tracer::Extract;
-  using opentracing::Tracer::Inject;
-
-  opentracing::expected<void> Inject(const opentracing::SpanContext& sc,
-                                     std::ostream& writer) const override;
-
-  opentracing::expected<void> Inject(const opentracing::SpanContext& sc,
-                                     const opentracing::TextMapWriter& writer) const override;
-
-  opentracing::expected<void> Inject(const opentracing::SpanContext& sc,
-                                     const opentracing::HTTPHeadersWriter& writer) const override;
-
-  opentracing::expected<std::unique_ptr<opentracing::SpanContext>> Extract(
-      std::istream& reader) const override;
-
-  opentracing::expected<std::unique_ptr<opentracing::SpanContext>> Extract(
-      const opentracing::TextMapReader& reader) const override;
-
-  opentracing::expected<std::unique_ptr<opentracing::SpanContext>> Extract(
-      const opentracing::HTTPHeadersReader& reader) const override;
-
-  void Close() noexcept override;
 
 };
 
