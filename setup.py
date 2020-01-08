@@ -7,7 +7,8 @@ libraries = ['w3copentracing', 'simplehttp']
 
 extensions = [
     Extension('simplehttp.ext',
-              ['simplehttp/ext.pyx', 'src/otinterop_tracer.cpp'],
+              ['simplehttp/ext.pyx', 'src/otinterop_tracer.cpp',
+                  'src/otinterop_span.cpp'],
               language='c++',
               include_dirs=['src'],
               extra_compile_args=subprocess.check_output(

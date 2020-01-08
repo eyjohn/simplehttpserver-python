@@ -14,8 +14,12 @@
 namespace otinterop {
 
 struct SpanCollectedData {
+  std::optional<std::string> operation_name;
   std::optional<opentracing::SystemTime> start_time;
   std::optional<opentracing::SystemTime> finish_time;
+  std::vector<
+      std::pair<opentracing::SpanReferenceType, w3copentracing::SpanContext>>
+      references;
   std::map<std::string, opentracing::Value> tags;
   std::map<std::string, std::string> baggage;
   std::vector<opentracing::LogRecord> logs;
@@ -28,6 +32,8 @@ class Span : public opentracing::Span {
        std::shared_ptr<const opentracing::Tracer> tracer,
        opentracing::string_view operation_name,
        const opentracing::StartSpanOptions& options);
+
+  ~Span() override;
 
   void FinishWithOptions(
       const opentracing::FinishSpanOptions& options) noexcept override;
@@ -62,9 +68,10 @@ class Span : public opentracing::Span {
   const opentracing::Tracer& tracer() const noexcept override;
 
  private:
-  w3copentracing::SpanContext context_;
   std::shared_ptr<SpanCollectedData> data_;
+  w3copentracing::SpanContext context_;
   std::shared_ptr<const opentracing::Tracer> tracer_;
+  bool finished_;
 };
 
 }  // namespace otinterop
