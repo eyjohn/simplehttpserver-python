@@ -5,26 +5,23 @@ using namespace std;
 
 namespace otinterop {
 
-Tracer::Tracer()
-{}
+Tracer::Tracer() {}
 
 unique_ptr<opentracing::Span> Tracer::StartSpanWithOptions(
-    opentracing::string_view operation_name, const StartSpanOptions& options) const
-    noexcept 
-{
-    return {};
+    opentracing::string_view operation_name,
+    const StartSpanOptions& options) const noexcept {
+  return {};
 }
 
-void Tracer::Close() noexcept {
-
-}
+void Tracer::Close() noexcept {}
 
 expected<void> Tracer::Inject(const opentracing::SpanContext& sc,
                               ostream& writer) const {
   return {};
 }
 
-expected<unique_ptr<opentracing::SpanContext>> Tracer::Extract(istream& reader) const {
+expected<unique_ptr<opentracing::SpanContext>> Tracer::Extract(
+    istream& reader) const {
   return {};
 }
 

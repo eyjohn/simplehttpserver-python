@@ -57,6 +57,5 @@ cdef class SimpleHttpServer:
         assert(self.server.has_value())
         self.server.value().stop()
 
-
     def __del__(self):
         self.server.reset()
