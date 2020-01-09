@@ -14,7 +14,10 @@ unique_ptr<opentracing::Span> Tracer::StartSpanWithOptions(
   shared_ptr<SpanCollectedData> span_data{new SpanCollectedData{}};
   tracked_spans_.push_back(span_data);
   return unique_ptr<opentracing::Span>{
-      new Span{span_data, w3copentracing::SpanContext::Generate(),
+      new Span{span_data,
+               w3copentracing::SpanContext{
+                   w3copentracing::SpanContext::GenerateTraceID(),
+                   w3copentracing::SpanContext::GenerateSpanID()},
                shared_from_this(), operation_name, options}};
 }
 
