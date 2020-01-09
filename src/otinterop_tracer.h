@@ -1,3 +1,5 @@
+#pragma once
+
 #include "otinterop_span.h"
 
 #include <opentracing/span.h>
@@ -6,13 +8,13 @@
 
 #include <iostream>
 #include <memory>
+#include <vector>
 
 namespace otinterop {
 
-class Tracer : public w3copentracing::Tracer {
+class Tracer : public w3copentracing::Tracer,
+               public std::enable_shared_from_this<Tracer> {
  public:
-  Tracer();
-
   std::unique_ptr<opentracing::Span> StartSpanWithOptions(
       opentracing::string_view operation_name,
       const opentracing::StartSpanOptions& options) const noexcept override;
@@ -27,6 +29,14 @@ class Tracer : public w3copentracing::Tracer {
       std::istream& reader) const override;
 
   void Close() noexcept override;
+
+  using TrackedSpans = std::vector<std::shared_ptr<SpanCollectedData>>;
+
+  // Get all known tracked spans and clear the list
+  TrackedSpans consume_tracked_spans();
+
+ private:
+  mutable TrackedSpans tracked_spans_;
 };
 
 }  // namespace otinterop

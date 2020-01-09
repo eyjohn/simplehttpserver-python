@@ -1,16 +1,21 @@
 #include "otinterop_tracer.h"
+#include "otinterop_span.h"
+
+#include <w3copentracing/span_context.h>
 
 using namespace opentracing;
 using namespace std;
 
 namespace otinterop {
 
-Tracer::Tracer() {}
-
 unique_ptr<opentracing::Span> Tracer::StartSpanWithOptions(
     opentracing::string_view operation_name,
     const StartSpanOptions& options) const noexcept {
-  return {};
+  shared_ptr<SpanCollectedData> span_data{new SpanCollectedData{}};
+  tracked_spans_.push_back(span_data);
+  return unique_ptr<opentracing::Span>{
+      new Span{span_data, w3copentracing::SpanContext::Generate(),
+               shared_from_this(), operation_name, options}};
 }
 
 void Tracer::Close() noexcept {}
@@ -23,6 +28,12 @@ expected<void> Tracer::Inject(const opentracing::SpanContext& sc,
 expected<unique_ptr<opentracing::SpanContext>> Tracer::Extract(
     istream& reader) const {
   return {};
+}
+
+Tracer::TrackedSpans Tracer::consume_tracked_spans() {
+  TrackedSpans out;
+  std::swap(tracked_spans_, out);
+  return out;
 }
 
 }  // namespace otinterop

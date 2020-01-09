@@ -1,3 +1,5 @@
+#pragma once
+
 #include <opentracing/propagation.h>
 #include <opentracing/span.h>
 #include <opentracing/string_view.h>
