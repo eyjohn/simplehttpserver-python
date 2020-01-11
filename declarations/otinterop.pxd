@@ -7,7 +7,7 @@ from libcpp.map cimport map
 from libcpp.pair cimport pair
 from libcpp.optional cimport optional
 from libcpp_extra cimport array, time_point, system_clock
-
+from python_reference cimport PythonReference
 
 cdef extern from "opentracing/propagation.h" namespace "opentracing" nogil:
     cdef cppclass SpanReferenceType:
@@ -64,11 +64,9 @@ cdef extern from "w3copentracing/span_context.h" namespace "w3copentracing" nogi
         @staticmethod
         TraceID GenerateTraceID()
 
-
 cdef extern from "opentracing/propagation.h" namespace "opentracing" nogil:
     cdef cppclass SpanReferenceType:
         pass
-
 
 cdef extern from "otinterop_span.h" namespace "otinterop" nogil:
     cdef cppclass SpanCollectedData:
@@ -79,6 +77,7 @@ cdef extern from "otinterop_span.h" namespace "otinterop" nogil:
         map[string,Value] tags
         map[string,string] baggage
         vector[LogRecord] logs
+        optional[PythonReference] python_span
 
 cdef extern from "opentracing/tracer.h" nogil:
     cdef cppclass OpentracingTracer "opentracing::Tracer":
@@ -89,7 +88,7 @@ cdef extern from "otinterop_tracer.h" namespace "otinterop" nogil:
         ctypedef vector[shared_ptr[SpanCollectedData]] TrackedSpans
         Tracer()
         TrackedSpans consume_tracked_spans()
-        unique_ptr[Span] StartProxySpan(SpanContext)
+        unique_ptr[Span] StartProxySpan(SpanContext,PythonReference)
 
         ScopeManager& ScopeManager()
 

@@ -9,8 +9,9 @@ using namespace std;
 namespace otinterop {
 
 std::unique_ptr<opentracing::Span> Tracer::StartProxySpan(
-    w3copentracing::SpanContext context) {
+    w3copentracing::SpanContext context, PythonReference python_span) {
   shared_ptr<SpanCollectedData> span_data{new SpanCollectedData{}};
+  span_data->python_span = python_span;
   tracked_spans_.push_back(span_data);
   return unique_ptr<opentracing::Span>{
       new Span{span_data, context, shared_from_this(), {}, {}}};

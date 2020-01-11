@@ -1,6 +1,7 @@
 from cpython.ref cimport PyObject
-from cython.operator cimport dereference as deref
+from cython.operator cimport dereference as deref, preincrement as inc
 from libcpp.string cimport string
+from libcpp.vector cimport vector
 from libcpp.optional cimport optional
 from libcpp.memory cimport shared_ptr, make_shared
 from simplehttp cimport Request as NativeRequest, \
@@ -8,6 +9,7 @@ from simplehttp cimport Request as NativeRequest, \
                         SimpleHttpClient as NativeSimpleHttpClient, \
                         SimpleHttpServer as NativeSimpleHttpServer
 from request_handler cimport RequestHandler
+from python_reference cimport PythonReference
 from otinterop cimport Scope as NativeScope, \
                        Span as NativeSpan, \
                        SpanCollectedData as NativeSpanCollectedData, \
@@ -24,6 +26,20 @@ include "util.pxi"
 cdef shared_ptr[NativeTracer] tracer
 tracer = make_shared[NativeTracer]()
 deref(tracer).InitGlobal(deref(tracer).shared_from_this())
+
+cdef observe_spans():
+    """Consume tracing events and propagate them in Python"""
+    cdef vector[shared_ptr[NativeSpanCollectedData]] spans_data
+    native_span_datas = deref(tracer).consume_tracked_spans()
+    cdef vector[shared_ptr[NativeSpanCollectedData]].iterator it = native_span_datas.begin()
+    while it != native_span_datas.end():
+        process_span_data(deref(deref(it)))
+        inc(it)
+
+cdef process_span_data(NativeSpanCollectedData& data):
+    print(data.tags.size())
+    pass
+
 
 # Re-entry point
 cdef NativeResponse handle_request(PyObject* callback, const NativeRequest& nreq) nogil:
@@ -54,7 +70,8 @@ cdef class SimpleHttpClient:
         # Reinstantiate the active scope in C++ if exists in python
         if scope is not None:
             span_context_to_native(scope.span.context, native_context)
-            native_span_ptr = shared_ptr[NativeSpan](deref(tracer).StartProxySpan(native_context))
+            native_span_ptr = shared_ptr[NativeSpan](deref(tracer).StartProxySpan(
+                native_context, PythonReference(<PyObject*>scope.span)))
             native_scope.emplace(deref(tracer).ScopeManager().Activate(native_span_ptr))
             # Scope lives until and of call
 
@@ -68,6 +85,11 @@ cdef class SimpleHttpClient:
         # Make the request
         with nogil:
             nresp = self.client.value().make_request(nreq)
+            native_scope.reset()
+            native_span_ptr.reset()
+
+        # Handle tracing data
+        observe_spans()
 
         # Convert the response
         return Response(nresp.code, nresp.data.value() if nresp.data.has_value() else None)

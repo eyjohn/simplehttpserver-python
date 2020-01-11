@@ -1,6 +1,7 @@
 #pragma once
 
 #include "otinterop_span.h"
+#include "python_reference.h"
 
 #include <opentracing/span.h>
 #include <opentracing/string_view.h>
@@ -16,7 +17,7 @@ class Tracer : public w3copentracing::Tracer,
                public std::enable_shared_from_this<Tracer> {
  public:
   std::unique_ptr<opentracing::Span> StartProxySpan(
-      w3copentracing::SpanContext context);
+      w3copentracing::SpanContext context, PythonReference python_span);
 
   std::unique_ptr<opentracing::Span> StartSpanWithOptions(
       opentracing::string_view operation_name,

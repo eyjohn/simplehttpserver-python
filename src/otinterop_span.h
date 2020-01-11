@@ -6,6 +6,8 @@
 #include <opentracing/tracer.h>
 #include <w3copentracing/span_context.h>
 
+#include "python_reference.h"
+
 #include <functional>
 #include <iostream>
 #include <map>
@@ -25,6 +27,7 @@ struct SpanCollectedData {
   std::map<std::string, opentracing::Value> tags;
   std::map<std::string, std::string> baggage;
   std::vector<opentracing::LogRecord> logs;
+  std::optional<PythonReference> python_span;
 };
 
 class Span : public opentracing::Span {
