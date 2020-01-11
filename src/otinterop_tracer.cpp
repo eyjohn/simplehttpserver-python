@@ -8,6 +8,14 @@ using namespace std;
 
 namespace otinterop {
 
+std::unique_ptr<opentracing::Span> Tracer::StartProxySpan(
+    w3copentracing::SpanContext context) {
+  shared_ptr<SpanCollectedData> span_data{new SpanCollectedData{}};
+  tracked_spans_.push_back(span_data);
+  return unique_ptr<opentracing::Span>{
+      new Span{span_data, context, shared_from_this(), {}, {}}};
+}
+
 unique_ptr<opentracing::Span> Tracer::StartSpanWithOptions(
     opentracing::string_view operation_name,
     const StartSpanOptions& options) const noexcept {

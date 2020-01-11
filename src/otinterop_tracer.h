@@ -15,6 +15,9 @@ namespace otinterop {
 class Tracer : public w3copentracing::Tracer,
                public std::enable_shared_from_this<Tracer> {
  public:
+  std::unique_ptr<opentracing::Span> StartProxySpan(
+      w3copentracing::SpanContext context);
+
   std::unique_ptr<opentracing::Span> StartSpanWithOptions(
       opentracing::string_view operation_name,
       const opentracing::StartSpanOptions& options) const noexcept override;
