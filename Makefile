@@ -2,10 +2,10 @@ default: all
 
 all: build_ext
 
-build_ext: ext.cpython-38.so
+build_ext: simplehttpserver/ext.cpython-38.so
 
-ext.cpython-38.so: simplehttp/ext.pyx setup.py
+simplehttpserver/ext.cpython-38.so: simplehttpserver/ext.pyx setup.py
 	python setup.py build_ext --inplace
 
 clean:
-	rm *.so *.o
+	rm simplehttpserver/*.so simplehttpserver/*.o

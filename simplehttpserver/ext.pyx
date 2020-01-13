@@ -86,79 +86,37 @@ cdef process_span_data(NativeSpanCollectedData& data):
         finish_time = time_point_as_double(data.finish_time.value())
         span.finish(finish_time)
 
-# Re-entry point
-cdef NativeResponse handle_request(PyObject* callback, const NativeRequest& nreq) nogil:
-    cdef NativeResponse nresp
-    cdef shared_ptr[NativeOpenTracingSpan] active_base_span = deref(tracer).ScopeManager().ActiveSpan()
-    cdef NativeSpan* active_span = dynamic_cast_span_ptr(active_base_span.get())
-
-    with gil:
-        # Gather any tracing data during request, especially for active span.
-        observe_spans()
-
-        # Normal request handling.
-        request = Request(bytes(nreq.path).decode('ascii'),
-                        bytes(nreq.data.value()) if nreq.data.has_value() else None)
-
-        if active_span:
-            scope = global_tracer().scope_manager.activate(<object>deref(active_span).data().python_span.value().get(), False)
-        else:
-            scope = contextmanager(lambda: iter(None))
-
-        with scope:
-            response = (<object>callback)(request)
-            nresp.code = response.code
-            if response.data is not None:
-                nresp.data = string(bytes(response.data))
-
-        return nresp
-
-cdef class SimpleHttpClient:
-    cdef optional[NativeSimpleHttpClient] client
-
-    def __init__(self, host: str, port: int):
-        self.client.emplace(<string>host.encode('ascii'), <unsigned short>port)
-
-    def make_request(self, request: Request) -> Response:
-        assert(self.client.has_value())
-
-        cdef NativeSpanContext native_context
-        cdef shared_ptr[NativeOpenTracingSpan] native_span_ptr
-        cdef optional[NativeScope] native_scope
-        scope = global_tracer().scope_manager.active
-
-        # Reinstantiate the active scope in C++ if exists in python
-        if scope is not None:
-            span_context_to_native(scope.span.context, native_context)
-            native_span_ptr = shared_ptr[NativeOpenTracingSpan](deref(tracer).StartProxySpan(
-                native_context, PythonReference(<PyObject*>scope.span)))
-            native_scope.emplace(deref(tracer).ScopeManager().Activate(native_span_ptr))
-            # Scope lives until and of call
-
-        # Convert the request
-        cdef NativeRequest nreq
-        cdef NativeResponse nresp
-        nreq.path = request.path.encode('ascii')
-        if request.data is not None:
-            nreq.data = string(bytes(request.data))
-
-        # Make the request
-        with nogil:
-            nresp = self.client.value().make_request(nreq)
-            native_scope.reset()
-            native_span_ptr.reset()
-
-        # Handle tracing data
-        observe_spans()
-
-        # Convert the response
-        return Response(nresp.code, nresp.data.value() if nresp.data.has_value() else None)
-
-    def __del__(self):
-        self.client.reset()
-
 cdef class SimpleHttpServer:
     cdef optional[NativeSimpleHttpServer] server
+
+    @staticmethod
+    cdef NativeResponse handle_request(PyObject* callback, const NativeRequest& nreq) nogil:
+        # Re-entry point
+        cdef NativeResponse nresp
+        cdef shared_ptr[NativeOpenTracingSpan] active_base_span = deref(tracer).ScopeManager().ActiveSpan()
+        cdef NativeSpan* active_span = dynamic_cast_span_ptr(active_base_span.get())
+
+        with gil:
+            # Gather any tracing data during request, especially for active span.
+            observe_spans()
+
+            # Normal request handling.
+            request = Request(bytes(nreq.path).decode('ascii'),
+                            bytes(nreq.data.value()) if nreq.data.has_value() else None)
+
+            if active_span:
+                scope = global_tracer().scope_manager.activate(<object>deref(active_span).data().python_span.value().get(), False)
+            else:
+                scope = contextmanager(lambda: iter(None))
+
+            with scope:
+                response = (<object>callback)(request)
+                nresp.code = response.code
+                if response.data is not None:
+                    nresp.data = string(bytes(response.data))
+
+            return nresp
+
 
     def __init__(self, address: str, port: int):
         self.server.emplace(<string>address.encode('ascii'), <unsigned short>port)
@@ -166,7 +124,7 @@ cdef class SimpleHttpServer:
     def run(self, callback: Callable[[Request], Response]):
         assert(self.server.has_value())
         with nogil:
-            self.server.value().run(RequestHandler(&handle_request, <PyObject*>callback))
+            self.server.value().run(RequestHandler(&SimpleHttpServer.handle_request, <PyObject*>callback))
 
         # Handle tracing data on shutdown
         observe_spans()
