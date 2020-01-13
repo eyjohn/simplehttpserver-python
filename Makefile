@@ -8,4 +8,4 @@ simplehttpserver/ext.cpython-38.so: simplehttpserver/ext.pyx setup.py
 	python setup.py build_ext --inplace
 
 clean:
-	rm simplehttpserver/*.so simplehttpserver/*.o
+	rm -rf build/ simplehttpserver/*.so

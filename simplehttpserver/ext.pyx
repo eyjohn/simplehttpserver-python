@@ -21,6 +21,7 @@ from otinterop cimport SpanCollectedData as NativeSpanCollectedData, \
 
 from typing import Callable
 from .types import Request, Response
+from w3copentracing import Span
 from opentracing import global_tracer
 from contextlib import contextmanager
 
@@ -59,7 +60,9 @@ cdef process_span_data(NativeSpanCollectedData& data):
                                           tags=tags,
                                           start_time=start_time,
                                           ignore_active_span=True)
-        span.context = context
+        if isinstance(span, Span):
+            span.context = context
+
         data.python_span = PythonReference(<PyObject*>span)
 
         # Reset consumed fields
