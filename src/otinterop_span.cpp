@@ -113,4 +113,6 @@ const opentracing::SpanContext& Span::context() const noexcept {
 
 const opentracing::Tracer& Span::tracer() const noexcept { return *tracer_; }
 
+SpanCollectedData& Span::data() { return *data_; }
+
 }  // namespace otinterop

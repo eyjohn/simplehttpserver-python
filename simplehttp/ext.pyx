@@ -16,11 +16,13 @@ from opentracing cimport Scope as NativeScope, \
                          Span as NativeOpenTracingSpan
 from w3copentracing cimport SpanContext as NativeSpanContext
 from otinterop cimport SpanCollectedData as NativeSpanCollectedData, \
-                       Tracer as NativeTracer
+                       Span as NativeSpan, \
+                       Tracer as NativeTracer, dynamic_cast_span_ptr
 
 from typing import Callable
 from .types import Request, Response
 from opentracing import global_tracer
+from contextlib import contextmanager
 
 include "util.pxi"
 
@@ -87,19 +89,28 @@ cdef process_span_data(NativeSpanCollectedData& data):
 # Re-entry point
 cdef NativeResponse handle_request(PyObject* callback, const NativeRequest& nreq) nogil:
     cdef NativeResponse nresp
+    cdef shared_ptr[NativeOpenTracingSpan] active_base_span = deref(tracer).ScopeManager().ActiveSpan()
+    cdef NativeSpan* active_span = dynamic_cast_span_ptr(active_base_span.get())
+
     with gil:
+        # Gather any tracing data during request, especially for active span.
+        observe_spans()
+
         # Normal request handling.
         request = Request(bytes(nreq.path).decode('ascii'),
                         bytes(nreq.data.value()) if nreq.data.has_value() else None)
 
-        # TODO: Read the current span/scope, and fwd to python if needed
-        response = (<object>callback)(request)
-        nresp.code = response.code
-        if response.data is not None:
-            nresp.data = string(bytes(response.data))
+        if active_span:
+            scope = global_tracer().scope_manager.activate(<object>deref(active_span).data().python_span.value().get(), False)
+        else:
+            scope = contextmanager(lambda: iter(None))
 
-        # Gather any tracing data during request (but not the finish).
-        observe_spans()
+        with scope:
+            response = (<object>callback)(request)
+            nresp.code = response.code
+            if response.data is not None:
+                nresp.data = string(bytes(response.data))
+
         return nresp
 
 cdef class SimpleHttpClient:

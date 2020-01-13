@@ -73,6 +73,8 @@ class Span : public opentracing::Span {
 
   const opentracing::Tracer& tracer() const noexcept override;
 
+  SpanCollectedData& data();
+
  private:
   std::shared_ptr<SpanCollectedData> data_;
   w3copentracing::SpanContext context_;

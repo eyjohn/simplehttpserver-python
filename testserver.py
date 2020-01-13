@@ -6,7 +6,7 @@ import sys
 from simplehttp import Request, Response, SimpleHttpServer
 
 from testtracer import Tracer
-from opentracing import set_global_tracer
+from opentracing import set_global_tracer, global_tracer
 tracer = Tracer()
 set_global_tracer(tracer)
 
@@ -17,7 +17,9 @@ if len(sys.argv) != 3:
 server = SimpleHttpServer(sys.argv[1], int(sys.argv[2]))
 
 
-def cb(r): return Response(200, ("Responding for: "+r.path).encode("ascii"))
+def cb(r):
+    global_tracer().scope_manager.active.span.set_tag("python_cb_path", r.path)
+    return Response(200, ("Responding for: "+r.path).encode("ascii"))
 
 
 def thread_func():

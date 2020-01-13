@@ -21,6 +21,10 @@ cdef extern from "otinterop_span.h" namespace "otinterop" nogil:
         map[string,string] baggage
         vector[opentracing.LogRecord] logs
 
+    cdef cppclass Span(opentracing.Span):
+        SpanCollectedData& data()
+
+    Span* dynamic_cast_span_ptr "dynamic_cast<otinterop::Span*>" (opentracing.Span*)
 
 cdef extern from "otinterop_tracer.h" namespace "otinterop" nogil:
     cdef cppclass Tracer(opentracing.Tracer):
