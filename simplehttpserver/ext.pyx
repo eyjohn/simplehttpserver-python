@@ -23,7 +23,7 @@ from typing import Callable
 from .types import Request, Response
 from w3copentracing import Span
 from opentracing import global_tracer
-from contextlib import contextmanager
+
 
 include "util.pxi"
 
@@ -108,18 +108,16 @@ cdef class SimpleHttpServer:
                             bytes(nreq.data.value()) if nreq.data.has_value() else None)
 
             if active_span:
-                scope = global_tracer().scope_manager.activate(<object>deref(active_span).data().python_span.value().get(), False)
+                with global_tracer().scope_manager.activate(<object>deref(active_span).data().python_span.value().get(), False) as scope:
+                    response = (<object>callback)(request)
             else:
-                scope = contextmanager(lambda: iter(None))
-
-            with scope:
                 response = (<object>callback)(request)
-                nresp.code = response.code
-                if response.data is not None:
-                    nresp.data = string(bytes(response.data))
+
+            nresp.code = response.code
+            if response.data is not None:
+                nresp.data = string(bytes(response.data))
 
             return nresp
-
 
     def __init__(self, address: str, port: int):
         self.server.emplace(<string>address.encode('ascii'), <unsigned short>port)
