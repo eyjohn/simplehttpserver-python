@@ -1,7 +1,4 @@
 cdef extern from "<chrono>" namespace "std::chrono" nogil:
-    cdef cppclass duration[Rep,Period]:
-        pass
-
     cdef cppclass system_clock:
         pass
 
@@ -10,6 +7,7 @@ cdef extern from "<chrono>" namespace "std::chrono" nogil:
 
     cdef cppclass time_point[Clock]:
         pass
+
 
 cdef extern from "<array>" namespace "std" nogil:
     cdef cppclass array[T,S]:

@@ -2,6 +2,9 @@
 #include "otinterop_span.h"
 
 #include <w3copentracing/span_context.h>
+#include <algorithm>
+#include <chrono>
+#include <iterator>
 
 using namespace opentracing;
 using namespace std;
@@ -10,8 +13,8 @@ namespace otinterop {
 
 std::unique_ptr<opentracing::Span> Tracer::StartProxySpan(
     w3copentracing::SpanContext context, PythonReference python_span) {
-  shared_ptr<SpanCollectedData> span_data{new SpanCollectedData{}};
-  span_data->python_span = python_span;
+  shared_ptr<SpanCollectedData> span_data{
+      new SpanCollectedData{context, python_span}};
   tracked_spans_.push_back(span_data);
   return unique_ptr<opentracing::Span>{
       new Span{span_data, context, shared_from_this(), {}, {}}};
@@ -20,14 +23,14 @@ std::unique_ptr<opentracing::Span> Tracer::StartProxySpan(
 unique_ptr<opentracing::Span> Tracer::StartSpanWithOptions(
     opentracing::string_view operation_name,
     const StartSpanOptions& options) const noexcept {
-  shared_ptr<SpanCollectedData> span_data{new SpanCollectedData{}};
+  w3copentracing::SpanContext context{
+      w3copentracing::SpanContext::GenerateTraceID(),
+      w3copentracing::SpanContext::GenerateSpanID()};
+  shared_ptr<SpanCollectedData> span_data{new SpanCollectedData{context}};
   tracked_spans_.push_back(span_data);
-  return unique_ptr<opentracing::Span>{
-      new Span{span_data,
-               w3copentracing::SpanContext{
-                   w3copentracing::SpanContext::GenerateTraceID(),
-                   w3copentracing::SpanContext::GenerateSpanID()},
-               shared_from_this(), operation_name, options}};
+
+  return unique_ptr<opentracing::Span>{new Span{
+      span_data, context, shared_from_this(), operation_name, options}};
 }
 
 void Tracer::Close() noexcept {}
@@ -44,7 +47,22 @@ expected<unique_ptr<opentracing::SpanContext>> Tracer::Extract(
 
 Tracer::TrackedSpans Tracer::consume_tracked_spans() {
   TrackedSpans out;
-  std::swap(tracked_spans_, out);
+
+  // Split spans that are no longer held in any spans
+  auto unheld_spans_it =
+      partition(tracked_spans_.begin(), tracked_spans_.end(),
+                [](const auto& span) { return span.use_count() > 1; });
+
+  // Move over the unheld spans
+  out.insert(out.end(), make_move_iterator(unheld_spans_it),
+             make_move_iterator(tracked_spans_.end()));
+
+  // Erase these spans from the original list
+  tracked_spans_.erase(unheld_spans_it, tracked_spans_.end());
+
+  // Append the remaining spans
+  out.insert(out.end(), tracked_spans_.begin(), tracked_spans_.end());
+
   return out;
 }
 

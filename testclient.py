@@ -3,7 +3,7 @@ import sys
 from simplehttp import Request, Response, SimpleHttpClient
 
 from testtracer import Tracer
-from opentracing import global_tracer, set_global_tracer, Format
+from opentracing import set_global_tracer
 tracer = Tracer()
 set_global_tracer(tracer)
 

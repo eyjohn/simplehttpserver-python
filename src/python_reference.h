@@ -4,7 +4,9 @@
 
 class PythonReference {
  public:
-  PythonReference(PyObject* object) : object_(object) { Py_XINCREF(object_); }
+  PythonReference(PyObject* object = nullptr) : object_(object) {
+    Py_XINCREF(object_);
+  }
   PythonReference(const PythonReference& other) : object_(other.object_) {
     Py_XINCREF(object_);
   }

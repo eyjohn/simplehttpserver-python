@@ -2,6 +2,7 @@ from cpython.ref cimport PyObject
 from cython.operator cimport dereference as deref, preincrement as inc
 from libcpp.string cimport string
 from libcpp.vector cimport vector
+from libcpp.pair cimport pair
 from libcpp.optional cimport optional
 from libcpp.memory cimport shared_ptr, make_shared
 from simplehttp cimport Request as NativeRequest, \
@@ -9,11 +10,12 @@ from simplehttp cimport Request as NativeRequest, \
                         SimpleHttpClient as NativeSimpleHttpClient, \
                         SimpleHttpServer as NativeSimpleHttpServer
 from request_handler cimport RequestHandler
+from chrono_helper cimport time_point_as_double
 from python_reference cimport PythonReference
-from otinterop cimport Scope as NativeScope, \
-                       Span as NativeSpan, \
-                       SpanCollectedData as NativeSpanCollectedData, \
-                       SpanContext as NativeSpanContext, \
+from opentracing cimport Scope as NativeScope, \
+                         Span as NativeOpenTracingSpan
+from w3copentracing cimport SpanContext as NativeSpanContext
+from otinterop cimport SpanCollectedData as NativeSpanCollectedData, \
                        Tracer as NativeTracer
 
 from typing import Callable
@@ -25,7 +27,7 @@ include "util.pxi"
 # Load Tracing
 cdef shared_ptr[NativeTracer] tracer
 tracer = make_shared[NativeTracer]()
-deref(tracer).InitGlobal(deref(tracer).shared_from_this())
+deref(tracer).InitGlobal(tracer)
 
 cdef observe_spans():
     """Consume tracing events and propagate them in Python"""
@@ -37,20 +39,67 @@ cdef observe_spans():
         inc(it)
 
 cdef process_span_data(NativeSpanCollectedData& data):
-    print(data.tags.size())
-    pass
+    if not data.python_span.has_value():
+        # First time we've seen the span. Need to create it:
+        context = native_to_span_context(data.context)
+        operation_name = data.operation_name.value() if data.operation_name.has_value() else None
 
+        # No start_time should not happen and would be populated interop tracer
+        start_time = time_point_as_double(data.start_time.value()) if data.start_time.has_value() else None
+        assert(start_time)
+
+        references = native_to_references(data.references)
+        tags = native_to_tags(data.tags)
+
+        span = global_tracer().start_span(operation_name=operation_name,
+                                          child_of=None,
+                                          references=references,
+                                          tags=tags,
+                                          start_time=start_time,
+                                          ignore_active_span=True)
+        span.context = context
+        data.python_span = PythonReference(<PyObject*>span)
+
+        # Reset consumed fields
+        data.operation_name.reset()
+        data.start_time.reset()
+        data.references.clear()
+        data.tags.clear()
+    else:
+        span = <object>data.python_span.value().get()
+
+    tags = native_to_tags(data.tags)
+    if tags is not None:
+        for key, value in tags.items():
+            span.set_tag(key, value)
+        data.tags.clear()
+
+    logs = native_to_logs(data.logs)
+    if logs is not None:
+        for key_values, timestamp in logs:
+            span.log_kv(key_values, timestamp)
+        data.logs.clear()
+
+    if data.finish_time.has_value():
+        finish_time = time_point_as_double(data.finish_time.value())
+        span.finish(finish_time)
 
 # Re-entry point
 cdef NativeResponse handle_request(PyObject* callback, const NativeRequest& nreq) nogil:
     cdef NativeResponse nresp
     with gil:
+        # Normal request handling.
         request = Request(bytes(nreq.path).decode('ascii'),
                         bytes(nreq.data.value()) if nreq.data.has_value() else None)
+
+        # TODO: Read the current span/scope, and fwd to python if needed
         response = (<object>callback)(request)
         nresp.code = response.code
         if response.data is not None:
             nresp.data = string(bytes(response.data))
+
+        # Gather any tracing data during request (but not the finish).
+        observe_spans()
         return nresp
 
 cdef class SimpleHttpClient:
@@ -63,14 +112,14 @@ cdef class SimpleHttpClient:
         assert(self.client.has_value())
 
         cdef NativeSpanContext native_context
-        cdef shared_ptr[NativeSpan] native_span_ptr
+        cdef shared_ptr[NativeOpenTracingSpan] native_span_ptr
         cdef optional[NativeScope] native_scope
         scope = global_tracer().scope_manager.active
 
         # Reinstantiate the active scope in C++ if exists in python
         if scope is not None:
             span_context_to_native(scope.span.context, native_context)
-            native_span_ptr = shared_ptr[NativeSpan](deref(tracer).StartProxySpan(
+            native_span_ptr = shared_ptr[NativeOpenTracingSpan](deref(tracer).StartProxySpan(
                 native_context, PythonReference(<PyObject*>scope.span)))
             native_scope.emplace(deref(tracer).ScopeManager().Activate(native_span_ptr))
             # Scope lives until and of call
@@ -107,6 +156,9 @@ cdef class SimpleHttpServer:
         assert(self.server.has_value())
         with nogil:
             self.server.value().run(RequestHandler(&handle_request, <PyObject*>callback))
+
+        # Handle tracing data on shutdown
+        observe_spans()
 
     def stop(self):
         assert(self.server.has_value())

@@ -18,6 +18,8 @@
 namespace otinterop {
 
 struct SpanCollectedData {
+  w3copentracing::SpanContext context;
+  std::optional<PythonReference> python_span;
   std::optional<std::string> operation_name;
   std::optional<opentracing::SystemTime> start_time;
   std::optional<opentracing::SystemTime> finish_time;
@@ -27,7 +29,6 @@ struct SpanCollectedData {
   std::map<std::string, opentracing::Value> tags;
   std::map<std::string, std::string> baggage;
   std::vector<opentracing::LogRecord> logs;
-  std::optional<PythonReference> python_span;
 };
 
 class Span : public opentracing::Span {

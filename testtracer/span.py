@@ -4,7 +4,7 @@ import time
 from typing import Callable, Optional
 
 
-class Span(opentracing.Span):
+class Span(w3copentracing.Span):
     def __init__(self,
                  collector: Callable[[dict], None],
                  tracer: opentracing.Tracer,
@@ -13,11 +13,12 @@ class Span(opentracing.Span):
                  start_time: Optional[float] = None,
                  tags: dict = {},
                  references: list = []):
+        w3copentracing.Span.__init__(self, tracer, context)
         self.collector = collector
         if start_time is None:
             start_time = time.time()
         self.data = {
-            "context": context,
+            "context": self.context,
             "operation_name": operation_name,
             "references": references if references is not None else [],
             "tags": tags if tags is not None else {},
@@ -36,6 +37,7 @@ class Span(opentracing.Span):
             self.data["finish_time"] = finish_time
         if self.data["finish_time"] is None:
             self.data["finish_time"] = time.time()
+        self.data["context"] = self.context
         self.collector(self.data)
         return self
 

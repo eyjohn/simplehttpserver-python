@@ -3,6 +3,7 @@ import opentracing
 import time
 from opentracing.scope_managers import ThreadLocalScopeManager
 from .span import Span
+import sys
 
 
 class Tracer(W3CTracer):
@@ -72,7 +73,7 @@ class Tracer(W3CTracer):
         else:
             ctx.trace_id = generate_trace_id()
 
-        return Span(collector=print,
+        return Span(collector=lambda x: print(x, file=sys.stderr),
                     tracer=self,
                     context=ctx,
                     operation_name=operation_name,
