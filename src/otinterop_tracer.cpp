@@ -23,9 +23,18 @@ std::unique_ptr<opentracing::Span> Tracer::StartProxySpan(
 unique_ptr<opentracing::Span> Tracer::StartSpanWithOptions(
     opentracing::string_view operation_name,
     const StartSpanOptions& options) const noexcept {
+  w3copentracing::SpanContext::TraceID trace_id;
+  if (options.references.empty()) {
+    trace_id = w3copentracing::SpanContext::GenerateTraceID();
+  } else {
+    trace_id = dynamic_cast<const w3copentracing::SpanContext*>(
+                   options.references[0].second)
+                   ->trace_id;
+  }
+
   w3copentracing::SpanContext context{
-      w3copentracing::SpanContext::GenerateTraceID(),
-      w3copentracing::SpanContext::GenerateSpanID()};
+      trace_id, w3copentracing::SpanContext::GenerateSpanID()};
+
   shared_ptr<SpanCollectedData> span_data{new SpanCollectedData{context}};
   tracked_spans_.push_back(span_data);
 
